@@ -23,8 +23,8 @@ async function runtimeConfig(): Promise<RuntimeConfig> {
         return invoke<RuntimeConfig>("runtime_config");
       }
       return {
-        apiBase: import.meta.env.VITE_API_BASE ?? "http://127.0.0.1:8765",
-        token: import.meta.env.VITE_API_TOKEN ?? "",
+        apiBase: process.env.NEXT_PUBLIC_API_BASE ?? "http://127.0.0.1:8765",
+        token: process.env.NEXT_PUBLIC_API_TOKEN ?? "",
       };
     })();
   }

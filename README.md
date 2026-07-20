@@ -2,13 +2,13 @@
 
 一个本地优先、开发深度可控的桌面项目规划 Agent。用户输入模糊想法并选择 Spark、Builder 或 Architect，系统通过澄清、人工确认、发散收敛、结构化生成和 Critic 修订，产出可追踪的 PRD、MVP 与技术方案，并把它们保存在持续演进的 Bubble 中。
 
-![Bubble Agent 运行界面](docs/assets/bubble-agent-demo.png)
-
 > 这是面向 Agent / Python 后端实习面试的个人项目。重点不是“又一个聊天框”，而是可恢复工作流、清晰的工程边界、可解释运行轨迹和可复现评测。
 
 ## 项目亮点
 
 - **深度是真实执行策略**：三档深度会改变问题预算、LangGraph 分支、Critic 轮次、Token 预算和产物契约，而非只修改 Prompt。
+- **状态空间化交互**：右侧泡泡区支持任意空白位置双击创建；深度决定 Bubble 尺寸，未完成任务位于底部，完成后自动浮到顶部。
+- **Next.js 桌面前端**：App Router + React 19 静态导出到 Tauri，使用 Motion、Phosphor Icons、深浅主题、响应式布局和减少动态效果适配。
 - **Human-in-the-loop**：生成最终方案前使用 LangGraph `interrupt` 暂停，用户确认后从同一 `thread_id` 恢复。
 - **发散—收敛—评审闭环**：Builder/Architect 先产生多个方向并评分收敛，再通过 Critic 定向修订。
 - **双层持久化**：SQLAlchemy 业务表保存 Bubble、Run、Event、Artifact；LangGraph SQLite checkpointer 保存图执行状态。
@@ -20,7 +20,7 @@
 
 ```mermaid
 flowchart LR
-    UI["React + TypeScript UI"] -->|"HTTP JSON / SSE + 启动令牌"| API["FastAPI sidecar"]
+    UI["Next.js + React 泡泡区"] -->|"HTTP JSON / SSE + 启动令牌"| API["FastAPI sidecar"]
     TAURI["Tauri 2 进程管理"] -->|"spawn / kill"| API
     API --> ORCH["RunOrchestrator"]
     ORCH --> GRAPH["LangGraph StateGraph"]
@@ -47,7 +47,7 @@ normalize → depth policy → find gaps → interrupt(user)
 | Python 后端 | FastAPI、Pydantic v2、SQLAlchemy 2、SSE-Starlette |
 | 模型 | 确定性 Demo Provider、OpenAI-compatible 结构化输出适配器 |
 | 桌面端 | Tauri 2、Rust sidecar 生命周期管理 |
-| 前端 | React 19、TypeScript、Vite、React Markdown |
+| 前端 | Next.js 16、React 19、TypeScript、Motion、Phosphor Icons、React Markdown |
 | 质量 | pytest、离线契约评测、TypeScript typecheck、Cargo check |
 | 打包 | PyInstaller 单文件 sidecar、Tauri NSIS bundler |
 
@@ -65,7 +65,7 @@ apps/desktop/src-tauri/target/release/bundle/nsis/Bubble Agent_0.1.0_x64-setup.e
 
 ### 开发环境
 
-要求：Python 3.11+、Node.js 20+、pnpm 9+、Rust stable。
+要求：Python 3.11+、Node.js 20.9+、pnpm 11.9+、Rust stable。
 
 ```powershell
 python -m venv .venv
@@ -118,7 +118,7 @@ cargo check
 
 - pytest：`9 passed`；
 - 20 个离线样本：平均契约得分 `100%`；
-- React/TypeScript 类型检查与生产构建通过；
+- Next.js/TypeScript 类型检查、静态导出与生产构建通过；
 - Rust `cargo check` 通过；
 - PyInstaller sidecar 的健康检查和本地令牌鉴权通过；
 - Tauri release executable 与 NSIS 安装包构建成功。
@@ -143,7 +143,9 @@ apps/desktop/src-tauri/binaries/bubble-agent-backend-x86_64-pc-windows-msvc.exe
 ## 目录
 
 ```text
-apps/desktop/                   React + Tauri 桌面端
+apps/desktop/app/               Next.js App Router、字体与全局样式
+apps/desktop/src/               泡泡画布、API 客户端与类型
+apps/desktop/src-tauri/         Tauri 桌面壳与 sidecar 生命周期
 backend/bubble_agent/agents/    LangGraph 状态、策略与节点
 backend/bubble_agent/api/       FastAPI 路由、SSE 与鉴权
 backend/bubble_agent/models/    模型适配器与结构化调用
@@ -159,6 +161,8 @@ scripts/                        开发、图标、sidecar 构建脚本
 - **SSE 而不是 WebSocket**：当前主要是服务端向 UI 推送事件，单向流足够，并天然支持事件 ID 和断线续传语义。
 - **业务库与 checkpoint 分离**：业务 Schema 由项目控制；checkpoint 是 LangGraph 运行时内部状态，两者独立便于迁移与调试。
 - **Pydantic 对象是真相，Markdown 是视图**：模型输出先校验为结构化对象，保存后再渲染，避免后续只能解析自由文本。
+- **Next.js 静态导出而非双后端**：Next 只承担静态 UI 和客户端交互，所有服务端能力仍由 FastAPI 提供，保持 Tauri 打包边界清楚。
+- **业务状态驱动动画**：Bubble 上浮由后端 `ready` 状态触发，Motion 只负责插值，不使用定时器伪造完成。
 - **Demo Provider 是测试替身，不是假模型宣传**：它让 CI、面试现场和离线环境可稳定复现完整路径；真实质量需要另做模型评测。
 - **首版固定本地端口**：已通过回环绑定和随机令牌降低风险；动态端口探测、系统凭据 UI 和代码签名属于下一阶段。
 
@@ -170,6 +174,8 @@ scripts/                        开发、图标、sidecar 构建脚本
 - 首版通过环境变量配置真实模型，尚未提供系统凭据库的桌面设置页；
 - 当前离线评测验证工程契约，不代表真实模型内容质量；
 - 产物支持版本累加，但 UI 暂未提供版本 Diff；
+- 当前画布采用确定性分带布局，尚未加入物理碰撞和大规模虚拟化；
+- 当前 in-app Browser 客户端阻止 loopback 自动化验收，仍需补独立的前端端到端测试；
 
 ## License
 
