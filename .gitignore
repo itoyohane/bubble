@@ -9,6 +9,7 @@ __pycache__/
 htmlcov/
 
 node_modules/
+.next/
 .pnpm-store/
 dist/
 target/

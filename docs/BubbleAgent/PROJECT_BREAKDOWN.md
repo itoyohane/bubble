@@ -1,281 +1,512 @@
 # Bubble Agent 项目拆解与开发复盘
 
-> 版本：v1.0 · 面向个人作品集、Agent / Python 后端实习面试
+> 本文记录当前可运行版本的真实实现、关键取舍、迁移过程和下一阶段计划。它不是理想架构清单，而是一次面向 Agent / Python 后端实习面试的个人项目复盘。
 
-## 1. 项目要解决什么
+## 1. 项目定位
 
-用户通常不是没有想法，而是不知道如何把一句模糊想法变成边界明确、能开工、能验证的方案。通用聊天模型的问题是：内容一次性、范围容易膨胀、缺少中途确认、无法解释执行路径，关闭会话后也很难恢复。
+Bubble Agent 是一个本地优先的桌面项目规划 Agent。用户不需要先写完整需求，只要在画布中双击并输入一个想法，再选择开发深度，系统会生成 PRD、MVP、技术方案等结构化产物，并把完整项目记忆保存在一个 Bubble 中。
 
-Bubble Agent 将这个问题建模为一个有状态过程：
+核心价值不是“模型能写 PRD”，而是把不确定的推理过程做成可观察、可暂停、可恢复、可评测的产品工作流。
 
-1. 提取已知事实与假设；
-2. 依据开发深度设定问题和计算预算；
-3. 只追问影响方向的关键信息；
-4. 在生成前暂停，等待用户确认；
-5. 对较深模式做方向发散和评分收敛；
-6. 生成结构化项目计划；
-7. 用 Critic 检查并定向修订；
-8. 保存结构化产物、Markdown、版本和执行轨迹。
+本版重点展示四类能力：
 
-## 2. MVP 边界
+- Next.js 前端与空间化交互设计。
+- FastAPI 长任务、SSE 和持久化后端。
+- LangGraph 状态图、Human-in-the-loop 和 Critic。
+- Tauri + Python sidecar 的桌面交付链路。
 
-### 已完成
+## 2. 最终用户体验
 
-- Bubble 创建、列表、打开、更新、删除；
-- Spark、Builder、Architect 三种执行策略；
-- LangGraph 人工确认中断与恢复；
-- Builder/Architect 的发散、收敛与 Critic 循环；
-- PRD、MVP、技术方案、架构草案的结构化生成和 Markdown 渲染；
-- Run 和节点事件持久化、SSE 增量事件流；
-- SQLite 业务数据和 LangGraph checkpoint 分离；
-- Demo / OpenAI-compatible 模型适配器；
-- React 桌面工作台和执行轨迹；
-- Tauri 启停 PyInstaller sidecar、随机本地令牌、NSIS 安装包；
-- 三档端到端测试、重启恢复测试、20 样本离线评测。
+### 2.1 页面结构
 
-### 明确不做
+左侧是稳定控制区：
 
-- 自动写代码、执行 Shell 或部署项目；
-- 多个自治 Agent 并行协作；
-- 云同步、账号、团队权限和计费；
-- 大规模 RAG 或向量数据库；
-- 跨平台安装包与自动更新；
-- 产物的可视化版本 Diff。
+- 空间：全部 Bubble 和实时状态。
+- 文件：当前 Bubble 的 PRD、MVP、技术方案、架构草案和运行轨迹。
+- 功能：重新运行、导出 Markdown、删除。
+- 底部：本地 Agent 连接与模型信息。
 
-把“不做什么”写清楚，是这个项目产品能力的重要组成部分，也能避免面试时被带入尚未实现的功能。
+右侧是泡泡区：
 
-## 3. 系统分层
+- 双击任意空白位置打开聊天栏。
+- 输入想法，系统自动取首句生成项目名。
+- 选择 Spark、Builder、Architect 开发深度。
+- 新 Bubble 出现在底部工作带。
+- 完成后根据 `ready` 状态浮到顶部完成带。
+- 点击 Bubble 打开项目抽屉，查看产物、运行轨迹或回答确认问题。
 
-| 层 | 主要职责 | 关键文件 |
-| --- | --- | --- |
-| React UI | Bubble 工作台、深度选择、确认表单、产物与轨迹展示 | `apps/desktop/src/App.tsx`、`api.ts` |
-| Tauri Host | 启动令牌、sidecar 生命周期、应用数据目录 | `apps/desktop/src-tauri/src/main.rs` |
-| FastAPI API | CRUD、运行控制、SSE、依赖注入和错误映射 | `backend/bubble_agent/api/`、`main.py` |
-| Orchestration | 线程池运行、状态迁移、取消、错误边界 | `services/orchestrator.py` |
-| Agent Graph | 节点、条件边、interrupt、Critic 循环 | `agents/graph.py`、`policies.py` |
-| Model Adapter | 供应商隔离、JSON 输出、Pydantic 校验和重试 | `models/` |
-| Persistence | SQLAlchemy 实体、Repository、事务与版本 | `persistence/` |
-| Artifact View | 从结构化计划确定性渲染 Markdown | `artifacts/renderers.py` |
-| Quality | API/图/恢复测试与 20 样本评测 | `backend/tests/`、`backend/evals/` |
+### 2.2 业务语义如何进入视觉
 
-依赖方向坚持从外向内：UI 调 API；API 调 orchestrator/repository；graph 依赖模型协议和 repository，不依赖具体 UI 或供应商 SDK。
+| 视觉变量 | 业务含义 | 数据来源 |
+|---|---|---|
+| Bubble 直径 | 开发深度 | `Bubble.depth` |
+| 纵向位置 | 是否完成 | `Bubble.status` |
+| 状态点颜色 | 运行、等待、失败、完成 | Bubble / Run 状态 |
+| 上浮动画 | Run 到达终态 | SSE + 权威 GET |
+| 文件列表 | Agent 产物集合 | `Artifact[]` |
+| 轨迹时间线 | LangGraph 节点事件 | `RunEvent[]` |
 
-## 4. 一次 Builder 运行的数据流
+这里最重要的产品决策是：动效由业务状态驱动。前端没有用固定倒计时伪造“生成完成”。
+
+## 3. 系统架构
 
 ```mermaid
-sequenceDiagram
-    participant U as User
-    participant UI as React/Tauri
-    participant API as FastAPI
-    participant O as RunOrchestrator
-    participant G as LangGraph
-    participant C as Checkpointer
-    participant DB as Business SQLite
-
-    U->>UI: 输入想法，选择 Builder
-    UI->>API: POST /bubbles
-    UI->>API: POST /bubbles/{id}/runs
-    API->>O: create_and_start
-    O->>G: invoke(initial state)
-    G->>DB: 节点事件
-    G->>C: 保存图状态
-    G-->>O: interrupt payload
-    O->>DB: Run=waiting
-    API-->>UI: SSE human_input_required
-    U->>UI: 回答并确认范围
-    UI->>API: POST /runs/{id}/resume
-    API->>O: resume(Command)
-    O->>G: 从 thread checkpoint 恢复
-    G->>G: diverge → converge → draft → critic → revise
-    G->>DB: Artifact + version + events
-    O->>DB: Run=completed, Bubble=ready
-    API-->>UI: SSE run_status
+flowchart LR
+    U["用户"] --> N["Next.js 16 UI"]
+    N -->|"静态导出 dist"| T["Tauri 2 WebView"]
+    T -->|"spawn + token"| F["FastAPI sidecar"]
+    N -->|"HTTP + SSE"| F
+    F --> O["Orchestrator"]
+    O --> G["LangGraph"]
+    G --> M["Model Gateway"]
+    G --> C["LangGraph checkpoint SQLite"]
+    O --> B["业务 SQLite"]
+    B -->|"Bubble / Run / Event / Artifact"| N
 ```
 
-## 5. 深度策略如何真正生效
+### 3.1 前端层
 
-`DepthPolicy` 是不可变策略对象，随状态进入图：
+- Next.js 16 App Router。
+- React 19 + TypeScript。
+- Motion 负责状态驱动动画。
+- Phosphor Icons 负责统一图标语义。
+- React Markdown 负责产物预览。
+- `output: "export"` 和 `distDir: "dist"` 兼容 Tauri。
 
-| 策略项 | Spark | Builder | Architect |
-| --- | ---: | ---: | ---: |
-| 最大澄清问题 | 2 | 5 | 8 |
-| 发散/收敛 | 否 | 是 | 是 |
-| 修订轮次预算 | 0 | 1 | 2 |
-| 产物数 | 2 | 3 | 4 |
-| Token 预算 | 4k | 10k | 18k |
+### 3.2 桌面层
 
-条件边根据策略决定是否经过 `diverge_directions`；Critic 路由根据 `revision_count` 和评审结果决定继续、修订或结束；最终持久化只保存策略允许的 Artifact 类型。因此，深度差异能从事件轨迹、产物集合和自动化测试中客观观察。
+- Tauri 2 提供窗口、WebView 和 NSIS 打包。
+- Rust 启动 Python sidecar、生成本地 token、暴露运行时配置并回收子进程。
+- 生产静态资源和 Python 后端一起进入安装包。
 
-## 6. 状态和持久化
+### 3.3 后端层
 
-### 图状态
+- FastAPI 提供 Bubble、Run、Artifact、事件与健康检查 API。
+- Pydantic 作为 API 与模型结构的统一 Schema。
+- SQLAlchemy + SQLite 保存业务数据。
+- 线程池承载同步 LangGraph 长任务。
 
-`ProjectGraphState` 使用可序列化字段保存：标识、输入、深度策略、澄清结果、候选方向、用户回答、项目计划、评审问题、修订次数和错误。
+### 3.4 Agent 层
 
-不把 Markdown 当作唯一真相。模型先生成 Pydantic 对象，系统保存 JSON，再由 Renderer 生成 Markdown。收益是：
+- LangGraph 状态图编排 12 个节点。
+- SQLite checkpointer 支持暂停和恢复。
+- 深度策略控制问题数量、发散、Critic、预算和产物。
+- Demo Provider 支持离线演示，OpenAI-compatible Provider 支持真实模型。
 
-- API 和测试可按字段断言；
-- 将来可以增加 HTML、PDF 或代码 Agent 输入格式；
-- Critic 能针对具体路径修订；
-- 版本 Diff 可以在 JSON 层实现。
+## 4. 前端重构拆解
 
-### 两个 SQLite 的边界
+### 4.1 为什么放弃原 Vite 工作台布局
 
-- 业务库：Bubble、Decision、Artifact、AgentRun、RunEvent；
-- checkpoint 库：LangGraph 每个 `thread_id` 的执行状态。
+原版是“侧栏项目列表 + 主区文档 + 右侧轨迹”的标准后台结构，功能完整，但没有把 Bubble 的概念变成主要交互，也不容易在面试中体现前端产品判断。
 
-业务代码不解析 checkpoint 内部表。checkpoint 负责“图从哪里继续”，业务库负责“用户能看到什么、审计什么”。这能避免框架升级污染业务 Schema。
+这次重构做了两件事：
 
-### 幂等和版本
+1. 工程从 Vite 迁移到 Next.js 静态导出。
+2. 信息架构从文档工作台变成空间化 Bubble 画布。
 
-- 每次执行有独立 `run_id` 和 `thread_id`；
-- RunEvent 使用数据库自增 ID，可作为 SSE 游标；
-- Artifact 以 Bubble、类型和版本组织，每次完成生成新版本；
-- 只有 `persist_and_render` 节点写最终产物，减少半成品暴露。
+迁移后仍保留原有能力：创建、运行、确认、轨迹、文件预览、导出、重跑和删除。
 
-## 7. 模型层
+### 4.2 Next.js 与 Tauri 的兼容方案
 
-模型层暴露 `StructuredModel.generate(schema, task, context)` 协议。图节点只声明目标 Schema 和上下文，不知道 HTTP 格式或模型厂商。
+`apps/desktop/next.config.ts`：
 
-### Demo Provider
+```ts
+const nextConfig = {
+  output: "export",
+  distDir: "dist",
+  images: { unoptimized: true },
+};
+```
 
-确定性 Demo Provider 的用途：
-
-- 不联网也能演示完整产品；
-- 自动化测试无需消耗 Token；
-- 固定输出使图路由回归可重复；
-- 面试现场不受 API 限流或网络影响。
-
-它不是实际模型效果的替代品，README 与评测报告明确区分“工程契约评测”和“语义质量评测”。
-
-### OpenAI-compatible Provider
-
-- 通过 Chat Completions 接口接入兼容服务；
-- 将 Pydantic JSON Schema 放入提示约束；
-- 对返回 JSON 做解析和 Schema 校验；
-- 将网络、认证、解析错误统一为模型网关错误；
-- 只对可恢复失败做有限重试。
-
-密钥来自环境变量或一次性连通测试请求，不进入业务数据库和日志。
-
-## 8. API 与 SSE
-
-CRUD 走普通 HTTP JSON。Agent 事件是服务端单向流，因此选 SSE：
-
-- 浏览器原生 `EventSource`；
-- 自动重连模型简单；
-- `Last-Event-ID` / `after_id` 可以续传；
-- 服务端事件已经持久化，重连不依赖进程内缓存。
-
-事件流终止条件包括 waiting、completed、failed、cancelled。前端收到终态后重新读取 Bubble 详情，以数据库快照作为最终事实，避免把 SSE 当成数据存储。
-
-## 9. 桌面进程模型与安全
-
-Tauri 启动时：
-
-1. 生成 UUID 访问令牌；
-2. 解析应用数据目录；
-3. 为 sidecar 注入 host、port、token、data directory；
-4. 启动 PyInstaller 可执行文件并持续排空 stdout/stderr；
-5. 通过 command 将 API base 和 token 提供给前端；
-6. 窗口销毁时 kill child，避免孤儿进程。
-
-后端只绑定 `127.0.0.1`。所有 `/api` 路由需要令牌；SSE 因 `EventSource` 不能设置自定义 Header，使用 URL query token。生产环境还应增加动态端口、令牌日志过滤、Windows 代码签名和安装包完整性校验。
-
-## 10. 可靠性设计
-
-| 风险 | 当前处理 |
-| --- | --- |
-| 模型 JSON 不合法 | Pydantic 校验 + 有限重试 |
-| 人工确认前误生成 | LangGraph interrupt 是硬边界 |
-| 应用在 waiting 时退出 | checkpoint + 业务 Run 状态可恢复 |
-| SSE 断线 | DB 事件 ID + `after_id` 续传 |
-| 节点异常 | `node_failed` 与 `run_failed` 分层记录 |
-| LangGraph 正常中断被误报 | 显式重抛 `GraphInterrupt`，有回归断言 |
-| 重复运行覆盖产物 | Artifact 版本递增 |
-| sidecar 阻塞 | 异步排空子进程事件通道 |
-| 本机其他进程访问 API | 回环绑定 + 每次启动随机令牌 |
-
-一个真实修复案例：最初节点包装器把 LangGraph 的 `GraphInterrupt` 当作普通异常记录为 `node_failed`，虽然运行仍能等待用户，但轨迹会出现巨大错误堆栈。修复方式是先识别并重抛框架控制流异常，再只记录真正失败；测试增加“waiting 阶段不得出现 node_failed”的断言。
-
-另一个打包案例：Uvicorn 开发态使用字符串模块路径，在 PyInstaller 单文件环境中无法重新导入模块。改为直接传 `app` 对象后，打包 sidecar 的健康检查通过。
-
-## 11. 测试和评测拆解
-
-### 自动化测试
-
-- Spark：两问预算、无发散、无 Critic、两个产物；
-- Builder：发散/收敛、Critic 与修订、三个产物；
-- Architect：深入产物集合；
-- Export：导出全部最新 Artifact；
-- 404：资源错误语义；
-- Restart recovery：关闭第一个 App 实例后，从同一数据库/checkpoint 恢复；
-- DepthPolicy：三档参数契约。
-- Local auth：缺少或错误令牌返回 401；
-- SSE/cancel：query token、终态事件与 Bubble 取消状态一致。
-
-### 20 样本离线评测
-
-每个样本检查七个确定性维度：人工中断、问题预算、正常完成、产物契约、Markdown 非空、无节点失败、深度路径正确。当前 20/20 全项通过。
-
-它没有伪装成内容质量评测。接入真实模型后，应再标注：
-
-- 澄清问题相关性；
-- MVP 范围回流率；
-- 目标、用户故事、技术栈术语一致性；
-- 技术选择理由是否与约束相关；
-- 不确定信息是否被错误断言；
-- 人工 1–5 分与 judge 模型的一致性。
-
-## 12. 构建与交付链路
+因此生产链路仍是：
 
 ```text
-Python source
-  └─ PyInstaller one-file sidecar
-       └─ target-triple filename
-React/TypeScript
-  └─ Vite production assets
-Rust/Tauri
-  └─ release executable
-       └─ NSIS current-user installer
+next build -> apps/desktop/dist -> Tauri frontendDist -> NSIS
 ```
 
-已验证：sidecar 真实启动、`/health` 返回 ok、无 token 请求返回 401、Cargo check 通过、release executable 与 NSIS 安装包生成成功。
+没有使用 Next Server、Server Actions 或动态 SSR。后端职责完全留在 FastAPI，避免把桌面应用变成两个服务端运行时。
 
-## 13. 里程碑复盘
+### 4.3 Server / Client 组件边界
 
-| 阶段 | 交付 | 主要风险 |
-| --- | --- | --- |
-| 1. 契约 | Pydantic Schema、DepthPolicy、数据库实体 | 深度沦为 Prompt 参数 |
-| 2. 图主链 | interrupt、分支、Critic、持久化 | 控制流异常和循环退出 |
-| 3. API | CRUD、运行控制、SSE、鉴权 | 后台线程和终态一致性 |
-| 4. UI | 创建、确认、Artifact、Trace | SSE 与快照竞态 |
-| 5. 可靠性 | 恢复测试、20 样本评测 | 只测 Happy Path |
-| 6. 桌面交付 | sidecar、Tauri、NSIS | 开发态与打包态差异 |
-| 7. 面试包装 | README、拆解、学习手册 | 只讲功能不讲取舍 |
+- `app/layout.tsx`：Metadata、字体、全局样式，保持服务端组件。
+- `app/page.tsx`：只组合页面入口。
+- `BubbleWorkspace.tsx`：声明 `use client`，包含 Web API、Tauri 动态导入、SSE、Motion 和交互状态。
 
-仓库同时提供 GitHub Actions：Python job 执行 Ruff、mypy、pytest 和 20 样本评测；Frontend job 执行类型检查与生产构建；Rust job 使用锁文件运行 `cargo check`。
+客户端边界集中在一个明确的工作区，而不是从根布局开始全部客户端化。
 
-## 14. 完成定义审计
+### 4.4 双击聊天栏
 
-| 条件 | 状态 | 证据 |
-| --- | --- | --- |
-| Windows 桌面启动，无需手动启动 Python | 完成 | Tauri release + bundled PyInstaller sidecar |
-| 三种深度端到端测试 | 完成 | `backend/tests/test_api_workflow.py` |
-| 人工确认前不生成最终方案 | 完成 | `interrupt` + waiting 断言 |
-| Builder 保存 PRD/MVP/技术方案 | 完成 | API 测试与 UI 演示 |
-| 应用重启后恢复 waiting run | 完成 | `test_restart_recovery.py` |
-| 节点轨迹与 Markdown 导出 | 完成 | SSE/RunEvent + export API |
-| API Key 不进入 DB/日志/导出 | 完成（当前配置边界） | 环境读取；测试接口不保存 |
-| README、截图、取舍、运行与限制 | 完成 | 根 README |
-| 20 样本与结果报告 | 完成 | `backend/evals/` |
+画布的 `onDoubleClick` 计算鼠标相对坐标，并把聊天栏限制在可见区域。通过 `[data-interactive]` 排除 Bubble、抽屉、侧栏和控件，防止双击文本或按钮误触创建。
 
-## 15. 下一阶段优先级
+键盘和触屏用户可使用左侧“捕获新想法”按钮，所以双击不是唯一入口。
 
-1. 动态分配 sidecar 端口，并等待健康检查后显示主界面；
-2. 使用 Windows Credential Manager / keyring 实现模型配置页；
-3. 增加真实模型语义评测和成本/Token 指标；
-4. 增加产物版本列表和 JSON-aware Diff；
-5. 将安全点取消升级为可取消 HTTP 请求；
-6. GitHub Actions 跑 Python、TypeScript、Rust 和 Windows 打包；
-7. 代码签名、自动更新、崩溃恢复提示。
+聊天栏只要求一个最小输入：项目想法。名称由首句生成，减少表单感。开发深度以三段选择呈现，并同时显示对应目标。
+
+### 4.5 Bubble 布局算法
+
+`ResizeObserver` 持续获取画布宽高。`bubblePlacement` 输入：
+
+- 当前组内索引和数量。
+- Bubble 直径。
+- `top/bottom` 状态带。
+- 画布尺寸。
+- 可选出生位置。
+
+输出目标 `x/y`。算法按 224 px 目标单元宽度计算列数，再换行并做边界 clamp。纯函数让布局逻辑独立于组件生命周期。
+
+当前没有实现物理碰撞，这是一项刻意控制的 MVP 边界。后续 Bubble 数量明显增长时，可升级为：
+
+1. 同带内按尺寸做 rectangle packing。
+2. 用 d3-force 做带边界约束的碰撞。
+3. 数量达到数百后改用 Canvas/WebGL。
+
+### 4.6 状态上浮
+
+前端将 Bubble 分成两个数组：
+
+```ts
+completed = bubbles.filter(item => item.status === "ready")
+unfinished = bubbles.filter(item => item.status !== "ready")
+```
+
+每次状态变化都会重新计算目标带。Motion 的 `animate={{ x, y }}` 使用弹簧过渡；用户开启减少动态效果后，持续动画和过渡时长被关闭。
+
+Bubble 横向出生点保存在 `localStorage`，这是展示偏好；纵向状态永远由后端决定。这样不需要为画布偏好修改业务数据库。
+
+### 4.7 数据同步
+
+当前采用两级同步：
+
+- 当前选中 Run：SSE 订阅细粒度事件。
+- 所有未完成 Bubble：1.8 秒低频轮询状态。
+
+终态后重新请求 Bubble 详情和列表，以 GET 结果作为权威状态。这个实现适合本地单用户和少量 Bubble；下一阶段可建立全局事件流，消除列表轮询。
+
+### 4.8 视觉系统
+
+- 统一 10/12/18 px 圆角层级，Bubble 圆形是语义例外。
+- 单一酸性绿作为品牌强调色。
+- 蓝、黄、红只用于运行、等待、失败语义。
+- 深色为主视觉，同时提供 `prefers-color-scheme` 浅色主题。
+- Geist / Geist Mono 分别承担正文和技术元信息。
+- Phosphor Icons 替代字符和手写 SVG。
+- 空态、加载、错误、等待确认和运行轨迹都有独立状态。
+
+## 5. 一次 Builder 运行的数据流
+
+1. 用户双击画布，输入想法并选择 Builder。
+2. Next 调用 `POST /api/bubbles`，创建 `draft` Bubble。
+3. Next 调用 `POST /api/bubbles/{id}/runs`。
+4. FastAPI 创建 `queued` Run 并返回 202。
+5. Orchestrator 在线程池中启动 LangGraph，Run 变为 `running`。
+6. 每个节点开始、完成或失败时写入 RunEvent。
+7. SSE 从业务库按递增 ID 推送事件。
+8. 图发现信息缺口，`interrupt` 保存 checkpoint。
+9. Orchestrator 把 Run 和 Bubble 设为 `waiting`。
+10. Next 抽屉显示问题；用户回答后调用 `/resume`。
+11. LangGraph 使用同一 thread ID 从 checkpoint 恢复。
+12. Builder 发散候选方向并评分收敛。
+13. 图生成 MVP、技术栈和结构化产物。
+14. Critic 检查一致性，最多修订一轮。
+15. 持久化节点写入 Artifact 版本和 Markdown。
+16. Run 变为 `completed`，Bubble 变为 `ready`。
+17. 前端拉取权威状态，Bubble 浮到顶部。
+
+## 6. 深度策略
+
+深度策略定义在 `backend/bubble_agent/agents/policies.py`：
+
+| 配置 | Spark | Builder | Architect |
+|---|---:|---:|---:|
+| `max_questions` | 2 | 5 | 8 |
+| `enable_divergence` | false | true | true |
+| `critic_rounds` | 0 | 1 | 2 |
+| `token_budget` | 4,000 | 10,000 | 18,000 |
+| `artifact_types` | prd, mvp | + technical_plan | + architecture_draft |
+
+它同时影响：
+
+- LangGraph 条件路由。
+- 模型上下文与预算。
+- 允许的 Critic 循环次数。
+- 最终持久化产物集合。
+- 前端 Bubble 直径。
+
+这是项目跨层一致性的核心：同一个产品概念不能在每层各写一套含义。
+
+## 7. LangGraph 工作流
+
+### 7.1 节点职责
+
+| 节点 | 输入 | 输出 |
+|---|---|---|
+| `normalize_idea` | 原始想法 | 规范化摘要 |
+| `route_by_depth` | 深度 | DepthPolicy |
+| `find_information_gaps` | 摘要、策略 | 已知、假设、问题 |
+| `await_user_confirmation` | 问题 | interrupt / 人工答案 |
+| `diverge_directions` | 确认范围 | 2 至 3 个候选方向 |
+| `score_and_converge` | 候选方向 | 选择与理由 |
+| `define_mvp` | 选中方向 | 范围、指标、排除项 |
+| `recommend_stack` | MVP | 分层技术栈 |
+| `draft_artifacts` | 全部计划 | ProjectPlan |
+| `critic_review` | ProjectPlan | ReviewResult |
+| `revise_artifacts` | 问题列表 | 修订计划 |
+| `persist_and_render` | 最终结构 | Artifact + Markdown |
+
+### 7.2 为什么节点拆得细
+
+- 单节点输入输出可用 Pydantic 校验。
+- 错误能定位到具体阶段。
+- RunEvent 对用户有解释性。
+- 可以给不同节点选择不同模型。
+- Critic 只修复明确问题，不必重新生成全部内容。
+- 单个节点可独立加入缓存、超时和评测。
+
+### 7.3 Human-in-the-loop
+
+`interrupt` 是正常控制流，不是失败。checkpoint 保存：
+
+- 当前 thread ID。
+- 完整可序列化状态。
+- 已完成节点位置。
+- 等待用户的 payload。
+
+恢复时使用 `Command(resume=answers)`，不重复之前节点。业务库额外保存 interrupt payload，便于 API 和前端直接读取。
+
+### 7.4 Critic 有界循环
+
+Critic 的退出条件有两个：
+
+- `review.passed == true`，直接持久化。
+- 修订次数达到 `critic_rounds`，停止循环并持久化当前最佳版本。
+
+无限循环风险由代码上限控制，不交给模型自行决定。
+
+## 8. 后端与数据
+
+### 8.1 核心实体
+
+```text
+Bubble
+  ├── AgentRun
+  │     └── RunEvent
+  └── Artifact(versioned)
+```
+
+Bubble 是项目记忆容器；AgentRun 是一次执行；RunEvent 是可补发审计流；Artifact 是版本化产物。
+
+### 8.2 为什么使用两个 SQLite 文件
+
+业务 SQLite 负责产品查询和版本；LangGraph SQLite 负责执行恢复。它们的 Schema、迁移节奏和消费者不同。
+
+当前跨库一致性采用最终一致性：checkpoint 先保证图可恢复，Orchestrator 再修复业务状态。已知风险是断电发生在两个写入之间。后续可增加恢复扫描、outbox 和幂等键。
+
+### 8.3 API
+
+| 方法 | 路径 | 作用 |
+|---|---|---|
+| GET | `/health` | sidecar 与模型健康信息 |
+| POST | `/api/bubbles` | 创建 Bubble |
+| GET | `/api/bubbles` | 获取画布项目 |
+| GET | `/api/bubbles/{id}` | Bubble、最新 Run、产物 |
+| PATCH | `/api/bubbles/{id}` | 修改名称或深度 |
+| DELETE | `/api/bubbles/{id}` | 删除本地项目 |
+| POST | `/api/bubbles/{id}/runs` | 启动 Run，返回 202 |
+| POST | `/api/runs/{id}/resume` | 从 checkpoint 恢复 |
+| POST | `/api/runs/{id}/cancel` | 取消可取消状态 |
+| GET | `/api/runs/{id}/events` | SSE 事件流 |
+| GET | `/api/runs/{id}/events/history` | 游标补发 |
+| GET | `/api/bubbles/{id}/export` | 导出 Markdown |
+
+### 8.4 SSE 可靠性
+
+RunEvent 先落库再发送。服务端循环：
+
+1. 查询 `id > cursor` 的事件。
+2. 逐条发送并推进 cursor。
+3. 无事件时检查 Run 是否终态。
+4. 终态发送 `run_status` 后关闭。
+5. 长时间空闲发送 keep-alive 注释。
+
+客户端刷新后先取 history，再订阅新的事件。实时连接只是传输层，数据库才是事实来源。
+
+## 9. 模型层
+
+### 9.1 Demo Provider
+
+Demo Provider 不是假装真实模型，而是确定性开发工具：
+
+- 无 API Key 可完整演示。
+- CI 不依赖外部服务。
+- API、图路由、interrupt、SSE、Artifact 可以稳定回归。
+- 20 个固定样本可以重复比较契约。
+
+它不能证明真实模型质量，因此文档和面试中必须区分“流程正确”和“生成质量”。
+
+### 9.2 OpenAI-compatible Provider
+
+通过 provider、model、base URL 和 API key 配置接入真实模型。节点只依赖统一 Gateway，供应商差异留在适配器。
+
+API key 只从环境变量读取。真实模型返回要经过：
+
+- JSON 提取。
+- Pydantic Schema 校验。
+- 有限错误修复。
+- 调用错误分类和重试。
+
+## 10. 桌面进程与安全
+
+### 10.1 生命周期
+
+```text
+Tauri 启动
+  -> 生成随机 token
+  -> 启动 bubble-agent-backend sidecar
+  -> 轮询 /health
+  -> Next 客户端通过 runtime_config 获取地址与 token
+  -> 窗口关闭时终止 sidecar
+```
+
+Rust 必须持续排空 stdout 和 stderr。子进程如果大量输出而管道没人读取，会因缓冲区写满而阻塞。
+
+### 10.2 CSP 复盘
+
+从 Vite 迁移到 Next.js 后，静态 `index.html` 包含 Next hydration 内联脚本。原来的 `script-src 'self'` 会让 HTML 能显示但交互不能 hydration。
+
+最终策略：
+
+- Production：允许自身脚本和 Next 所需内联脚本。
+- Development：在此基础上允许本地 WebSocket 与 `unsafe-eval`。
+- `connect-src` 仍只允许自身、Tauri IPC 和 `127.0.0.1:8765`。
+- 后端仍只监听 loopback 并验证 token。
+
+这次问题说明：前端框架迁移必须检查桌面 WebView、安全策略和静态产物，不能只看 `next build`。
+
+## 11. 测试与质量门槛
+
+### 11.1 当前自动化
+
+- TypeScript `tsc --noEmit`。
+- Next.js production build 和静态导出。
+- Cargo check。
+- Ruff。
+- mypy。
+- pytest API、Policy、安全、事件与重启恢复测试。
+- 20 样本离线 Agent 契约评测。
+- GitHub Actions 分前端、Python、Rust 三个 Job。
+
+### 11.2 前端预检
+
+- 无 Vite 残留环境变量或入口。
+- 无手写 SVG，统一使用图标库。
+- 无可见长破折号。
+- 图标按钮包含可访问名称。
+- 双击有按钮替代入口。
+- 支持深浅主题和 reduced motion。
+- 定义 720 px 以下布局。
+- 空、加载、错误、等待、运行、完成状态齐全。
+
+### 11.3 尚缺测试
+
+- 双击创建和交互区域防误触的组件测试。
+- `running -> ready` 上浮的端到端测试。
+- 多尺寸 Bubble 布局边界的参数化测试。
+- Tauri WebView hydration 和 CSP 的安装包 smoke test。
+- 真实模型重复采样与人工 rubric。
+
+## 12. 迁移复盘
+
+### 12.1 做对的地方
+
+- 先审计 API 和 Tauri 契约，后端数据模型不随视觉重构变化。
+- Next 使用静态导出，保持 Tauri 的 `dist` 入口。
+- Tauri API 动态导入仍只发生在客户端。
+- 先验证依赖存在再引入 Motion 和 Phosphor。
+- 将 Bubble 位置偏好留在前端，避免无意义数据库迁移。
+- 构建后检查真实 HTML，提前发现 hydration CSP 问题。
+
+### 12.2 遇到的问题
+
+#### pnpm 阻止 sharp 安装脚本
+
+Next 的可选依赖 `sharp` 触发 pnpm 供应链策略。解决方式是在工作区 `allowBuilds` 只允许 `sharp: true`，没有放开其他脚本。
+
+#### 浏览器自动化无法访问 loopback
+
+当前 in-app Browser 客户端阻止 `127.0.0.1` 和 `localhost`。没有绕过客户端策略，改用类型检查、生产构建、静态 HTML 检查与后续 Tauri 校验完成工程验收。仍把真实浏览器交互测试列为待补项，而不是声称已经视觉回归通过。
+
+#### Next 自动调整 TypeScript 配置
+
+首次 build 将 `jsx` 调整为 `react-jsx`，并加入 `.next/dev/types`。这是 Next 16 的强制配置，纳入版本控制以保证本地和 CI 一致。
+
+### 12.3 如果重做一次
+
+1. 在迁移前先添加一个最小端到端测试，锁住创建和确认流程。
+2. 先制作 Next + Tauri CSP 的最小 spike，再迁移完整页面。
+3. 把 `BubbleWorkspace` 提前拆成 hooks、画布、侧栏、抽屉四个模块。
+4. 为布局纯函数同步补单测。
+
+## 13. 完成定义审计
+
+| 目标 | 状态 | 证据 |
+|---|---|---|
+| Next.js 替换 Vite | 完成 | App Router、静态 `dist`、旧入口删除 |
+| 左侧文件与功能列表 | 完成 | Sidebar 三个分区 |
+| 右侧大泡泡区 | 完成 | BubbleCanvas 全区域布局 |
+| 任意空白位置双击聊天栏 | 完成 | 相对坐标 + clamp + 误触排除 |
+| 输入想法创建 Bubble | 完成 | 自动名称 + API + Run |
+| 深度决定尺寸 | 完成 | 116 / 158 / 202 px |
+| 未完成在底部 | 完成 | unfinished bottom band |
+| 完成浮到顶部 | 完成 | ready top band + Motion |
+| Human-in-the-loop | 完成 | interrupt + drawer questions |
+| 产物文件预览与导出 | 完成 | Artifact drawer + Markdown |
+| 文档同步 | 完成 | 面试手册、拆解、README、PRD |
+| 自动化浏览器回归 | 待补 | 当前客户端阻止 loopback |
+
+## 14. 下一阶段优先级
+
+### P0：补可信演示
+
+1. 加 Playwright 端到端测试和 mock API。
+2. 加 Bubble 布局纯函数测试。
+3. 在真实 Tauri 安装包验证 hydration、SSE、导出和 sidecar 回收。
+
+### P1：增强 Agent 产品性
+
+1. 在 Bubble 内继续对话并形成 Artifact diff。
+2. 增加版本对比与回滚。
+3. 让用户查看 Critic 问题与修订记录。
+4. 增加 Prompt / Model 版本对比评测。
+
+### P2：增强系统能力
+
+1. 用全局事件流替代画布轮询。
+2. 将工作区组件拆分并引入 TanStack Query。
+3. 增加并发限制、超时和可取消模型调用。
+4. 云端化时迁移 PostgreSQL、worker 和对象存储。
+
+## 15. 最终复盘
+
+这个项目最有价值的部分不是技术栈数量，而是一个概念贯穿了完整链路：
+
+```text
+开发深度
+  -> 前端 Bubble 尺寸
+  -> 后端 Run 配置
+  -> LangGraph 路由与预算
+  -> Artifact 数量
+  -> Critic 轮数
+```
+
+另一个贯穿概念是状态：
+
+```text
+Agent checkpoint
+  -> Run/Bubble 业务状态
+  -> 持久化 RunEvent
+  -> SSE 与 GET
+  -> 前端上下状态带
+  -> Bubble 完成上浮
+```
+
+这两条链路让项目不只是“套一个模型 API 的桌面壳”，而是一个能解释产品设计、前端工程、后端可靠性和 Agent 编排取舍的完整个人项目。

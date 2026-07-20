@@ -4,13 +4,16 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite --host 127.0.0.1 --port 1420",
-    "build": "tsc -b && vite build",
-    "typecheck": "tsc -b --pretty false",
+    "dev": "next dev --hostname 127.0.0.1 --port 1420",
+    "build": "next build",
+    "typecheck": "tsc --noEmit --pretty false",
     "tauri": "tauri"
   },
   "dependencies": {
+    "@phosphor-icons/react": "^2.1.10",
     "@tauri-apps/api": "^2.10.1",
+    "motion": "^12.42.2",
+    "next": "^16.2.10",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-markdown": "^10.1.0"
@@ -20,8 +23,6 @@
     "@types/node": "^24.10.0",
     "@types/react": "^19.2.10",
     "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^5.1.4",
-    "typescript": "^5.9.3",
-    "vite": "^7.3.1"
+    "typescript": "^5.9.3"
   }
 }
