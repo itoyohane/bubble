@@ -1,0 +1,22 @@
+[
+  {"id": "student-planner", "name": "学生项目孵化器", "idea": "帮助学生把模糊想法整理成可执行项目计划的桌面 Agent", "depth": "builder"},
+  {"id": "meal-prep", "name": "一周备餐助手", "idea": "根据预算、忌口和健身目标生成一周备餐与采购计划", "depth": "spark"},
+  {"id": "elder-medication", "name": "老人用药提醒", "idea": "为独居老人和子女提供简单可靠的用药提醒与异常通知", "depth": "architect"},
+  {"id": "campus-lost-found", "name": "校园失物招领", "idea": "用图片和地点信息提高校园失物招领匹配效率的小程序", "depth": "builder"},
+  {"id": "interview-review", "name": "面试复盘助手", "idea": "把面试录音笔记整理为问题分类、薄弱点和下一轮训练计划", "depth": "builder"},
+  {"id": "pet-health", "name": "宠物健康日志", "idea": "记录宠物饮食排便用药并生成就诊前的结构化健康摘要", "depth": "architect"},
+  {"id": "reading-club", "name": "读书会协作", "idea": "让读书会成员提交摘录并自动生成每期讨论议题和纪要", "depth": "spark"},
+  {"id": "freelancer-crm", "name": "自由职业客户管家", "idea": "帮助自由职业者跟踪线索、报价、合同节点和回款风险", "depth": "architect"},
+  {"id": "lab-inventory", "name": "实验室耗材管理", "idea": "管理实验室耗材库存、领用记录和低库存预警的内部工具", "depth": "builder"},
+  {"id": "travel-split", "name": "旅行分账", "idea": "多人旅行中快速记录共同消费并生成最少转账次数的结算方案", "depth": "spark"},
+  {"id": "bug-triage", "name": "缺陷分诊 Agent", "idea": "读取缺陷描述和日志，自动分类优先级、关联模块并建议排查路径", "depth": "architect"},
+  {"id": "community-events", "name": "社区活动板", "idea": "帮助社区居民发布活动、报名、签到并收集活动反馈", "depth": "builder"},
+  {"id": "resume-tailor", "name": "简历岗位适配", "idea": "根据职位描述分析简历匹配度并给出有证据的修改建议", "depth": "architect"},
+  {"id": "focus-room", "name": "专注房间", "idea": "提供轻量番茄钟、每日目标和可视化专注复盘的桌面工具", "depth": "spark"},
+  {"id": "support-kb", "name": "客服知识库助手", "idea": "从历史工单沉淀常见问题并辅助客服生成可追溯的回复草稿", "depth": "architect"},
+  {"id": "secondhand-books", "name": "校园二手书", "idea": "按课程和教材版本连接校内二手书买家与卖家的平台", "depth": "builder"},
+  {"id": "habit-experiment", "name": "习惯实验室", "idea": "让用户用两周小实验验证一种习惯是否真正改善生活状态", "depth": "spark"},
+  {"id": "meeting-actions", "name": "会议行动项", "idea": "从会议纪要中提取负责人、截止时间、依赖关系并持续提醒", "depth": "architect"},
+  {"id": "volunteer-match", "name": "志愿者匹配", "idea": "依据时间、技能和位置为公益组织匹配合适的短期志愿者", "depth": "builder"},
+  {"id": "home-energy", "name": "家庭能耗洞察", "idea": "读取家庭电费记录，识别异常变化并给出可执行的节能建议", "depth": "spark"}
+]

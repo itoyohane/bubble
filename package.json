@@ -1,0 +1,12 @@
+{
+  "name": "bubble-agent-workspace",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.9.0",
+  "scripts": {
+    "dev": "pnpm --dir apps/desktop dev",
+    "build": "pnpm --dir apps/desktop build",
+    "tauri": "pnpm --dir apps/desktop tauri",
+    "typecheck": "pnpm --dir apps/desktop typecheck"
+  }
+}

@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master, "codex/**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+      - name: Install backend
+        run: python -m pip install -e ".\backend[dev]"
+      - name: Ruff
+        run: python -m ruff check backend
+      - name: Mypy
+        run: python -m mypy backend/bubble_agent
+      - name: Tests
+        run: python -m pytest backend/tests -q -p no:cacheprovider
+      - name: Offline contract evaluation
+        run: python backend/evals/run_evals.py
+
+  frontend:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.9.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run typecheck
+      - run: pnpm run build
+
+  rust:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: apps/desktop/src-tauri
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+      - name: Create check-only sidecar placeholder
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path binaries | Out-Null
+          New-Item -ItemType File -Force -Path binaries/bubble-agent-backend-x86_64-pc-windows-msvc.exe | Out-Null
+      - run: cargo check --locked
