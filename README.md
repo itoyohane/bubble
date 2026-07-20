@@ -170,14 +170,6 @@ scripts/                        开发、图标、sidecar 构建脚本
 - 首版通过环境变量配置真实模型，尚未提供系统凭据库的桌面设置页；
 - 当前离线评测验证工程契约，不代表真实模型内容质量；
 - 产物支持版本累加，但 UI 暂未提供版本 Diff；
-- 项目代号 Bubble Agent 与 Bubble.io 容易混淆，公开发布前应更名。
-
-## 文档
-
-- [产品调研与 PRD](docs/BubbleAgent/PRD_BubbleAgent.md)
-- [项目拆解与开发复盘](docs/BubbleAgent/PROJECT_BREAKDOWN.md)
-- [面试学习与问答手册](docs/BubbleAgent/INTERVIEW_GUIDE.md)
-- [离线评测报告](backend/evals/latest_report.md)
 
 ## License
 
