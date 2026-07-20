@@ -1,0 +1,342 @@
+[
+  {
+    "id": "student-planner",
+    "depth": "builder",
+    "score": 1.0,
+    "checks": {
+      "interrupt": true,
+      "question_budget": true,
+      "completed": true,
+      "artifact_contract": true,
+      "nonempty_markdown": true,
+      "no_node_failure": true,
+      "depth_route": true
+    },
+    "duration_ms": 253,
+    "run_id": "41f612c8-e9fa-4f0c-ae7c-6e76e751926a",
+    "error": null
+  },
+  {
+    "id": "meal-prep",
+    "depth": "spark",
+    "score": 1.0,
+    "checks": {
+      "interrupt": true,
+      "question_budget": true,
+      "completed": true,
+      "artifact_contract": true,
+      "nonempty_markdown": true,
+      "no_node_failure": true,
+      "depth_route": true
+    },
+    "duration_ms": 159,
+    "run_id": "415494cd-06fa-492b-acd5-82f9090fd8d9",
+    "error": null
+  },
+  {
+    "id": "elder-medication",
+    "depth": "architect",
+    "score": 1.0,
+    "checks": {
+      "interrupt": true,
+      "question_budget": true,
+      "completed": true,
+      "artifact_contract": true,
+      "nonempty_markdown": true,
+      "no_node_failure": true,
+      "depth_route": true
+    },
+    "duration_ms": 129,
+    "run_id": "090c1a05-2a53-421a-b55b-657d6b9a17dd",
+    "error": null
+  },
+  {
+    "id": "campus-lost-found",
+    "depth": "builder",
+    "score": 1.0,
+    "checks": {
+      "interrupt": true,
+      "question_budget": true,
+      "completed": true,
+      "artifact_contract": true,
+      "nonempty_markdown": true,
+      "no_node_failure": true,
+      "depth_route": true
+    },
+    "duration_ms": 159,
+    "run_id": "20509913-d063-49ac-a67d-022f519a0eaf",
+    "error": null
+  },
+  {
+    "id": "interview-review",
+    "depth": "builder",
+    "score": 1.0,
+    "checks": {
+      "interrupt": true,
+      "question_budget": true,
+      "completed": true,
+      "artifact_contract": true,
+      "nonempty_markdown": true,
+      "no_node_failure": true,
+      "depth_route": true
+    },
+    "duration_ms": 257,
+    "run_id": "ce0748fb-3ccb-488a-9747-847b9c8b4084",
+    "error": null
+  },
+  {
+    "id": "pet-health",
+    "depth": "architect",
+    "score": 1.0,
+    "checks": {
+      "interrupt": true,
+      "question_budget": true,
+      "completed": true,
+      "artifact_contract": true,
+      "nonempty_markdown": true,
+      "no_node_failure": true,
+      "depth_route": true
+    },
+    "duration_ms": 203,
+    "run_id": "220dd05c-6031-4eeb-a2ac-408de8ff0962",
+    "error": null
+  },
+  {
+    "id": "reading-club",
+    "depth": "spark",
+    "score": 1.0,
+    "checks": {
+      "interrupt": true,
+      "question_budget": true,
+      "completed": true,
+      "artifact_contract": true,
+      "nonempty_markdown": true,
+      "no_node_failure": true,
+      "depth_route": true
+    },
+    "duration_ms": 171,
+    "run_id": "0f6999ee-4216-4d2c-bfff-79ed4a90c25a",
+    "error": null
+  },
+  {
+    "id": "freelancer-crm",
+    "depth": "architect",
+    "score": 1.0,
+    "checks": {
+      "interrupt": true,
+      "question_budget": true,
+      "completed": true,
+      "artifact_contract": true,
+      "nonempty_markdown": true,
+      "no_node_failure": true,
+      "depth_route": true
+    },
+    "duration_ms": 202,
+    "run_id": "ca7fc48e-8396-4a20-9e69-a72d9b5c03c8",
+    "error": null
+  },
+  {
+    "id": "lab-inventory",
+    "depth": "builder",
+    "score": 1.0,
+    "checks": {
+      "interrupt": true,
+      "question_budget": true,
+      "completed": true,
+      "artifact_contract": true,
+      "nonempty_markdown": true,
+      "no_node_failure": true,
+      "depth_route": true
+    },
+    "duration_ms": 200,
+    "run_id": "7b058466-a158-4414-a38e-445e9ad63551",
+    "error": null
+  },
+  {
+    "id": "travel-split",
+    "depth": "spark",
+    "score": 1.0,
+    "checks": {
+      "interrupt": true,
+      "question_budget": true,
+      "completed": true,
+      "artifact_contract": true,
+      "nonempty_markdown": true,
+      "no_node_failure": true,
+      "depth_route": true
+    },
+    "duration_ms": 154,
+    "run_id": "f6bad479-5146-4d0e-b072-5cc854168e48",
+    "error": null
+  },
+  {
+    "id": "bug-triage",
+    "depth": "architect",
+    "score": 1.0,
+    "checks": {
+      "interrupt": true,
+      "question_budget": true,
+      "completed": true,
+      "artifact_contract": true,
+      "nonempty_markdown": true,
+      "no_node_failure": true,
+      "depth_route": true
+    },
+    "duration_ms": 159,
+    "run_id": "7ea21087-7288-48ed-a482-b129dfb53935",
+    "error": null
+  },
+  {
+    "id": "community-events",
+    "depth": "builder",
+    "score": 1.0,
+    "checks": {
+      "interrupt": true,
+      "question_budget": true,
+      "completed": true,
+      "artifact_contract": true,
+      "nonempty_markdown": true,
+      "no_node_failure": true,
+      "depth_route": true
+    },
+    "duration_ms": 161,
+    "run_id": "6de45d58-72eb-4ec7-ab8c-7f484cecfd93",
+    "error": null
+  },
+  {
+    "id": "resume-tailor",
+    "depth": "architect",
+    "score": 1.0,
+    "checks": {
+      "interrupt": true,
+      "question_budget": true,
+      "completed": true,
+      "artifact_contract": true,
+      "nonempty_markdown": true,
+      "no_node_failure": true,
+      "depth_route": true
+    },
+    "duration_ms": 194,
+    "run_id": "8a6ed19c-91fc-46b4-a50b-ba2b57beec81",
+    "error": null
+  },
+  {
+    "id": "focus-room",
+    "depth": "spark",
+    "score": 1.0,
+    "checks": {
+      "interrupt": true,
+      "question_budget": true,
+      "completed": true,
+      "artifact_contract": true,
+      "nonempty_markdown": true,
+      "no_node_failure": true,
+      "depth_route": true
+    },
+    "duration_ms": 178,
+    "run_id": "0cd1437d-520f-40b2-a4dc-72e17ad8c6cc",
+    "error": null
+  },
+  {
+    "id": "support-kb",
+    "depth": "architect",
+    "score": 1.0,
+    "checks": {
+      "interrupt": true,
+      "question_budget": true,
+      "completed": true,
+      "artifact_contract": true,
+      "nonempty_markdown": true,
+      "no_node_failure": true,
+      "depth_route": true
+    },
+    "duration_ms": 198,
+    "run_id": "b48c30ff-ec27-4c2b-9ec7-ff2874b46370",
+    "error": null
+  },
+  {
+    "id": "secondhand-books",
+    "depth": "builder",
+    "score": 1.0,
+    "checks": {
+      "interrupt": true,
+      "question_budget": true,
+      "completed": true,
+      "artifact_contract": true,
+      "nonempty_markdown": true,
+      "no_node_failure": true,
+      "depth_route": true
+    },
+    "duration_ms": 198,
+    "run_id": "8b2121b0-033b-42c0-82d2-90aa38bd765a",
+    "error": null
+  },
+  {
+    "id": "habit-experiment",
+    "depth": "spark",
+    "score": 1.0,
+    "checks": {
+      "interrupt": true,
+      "question_budget": true,
+      "completed": true,
+      "artifact_contract": true,
+      "nonempty_markdown": true,
+      "no_node_failure": true,
+      "depth_route": true
+    },
+    "duration_ms": 161,
+    "run_id": "596956af-81c4-4bab-8537-e639143a3e99",
+    "error": null
+  },
+  {
+    "id": "meeting-actions",
+    "depth": "architect",
+    "score": 1.0,
+    "checks": {
+      "interrupt": true,
+      "question_budget": true,
+      "completed": true,
+      "artifact_contract": true,
+      "nonempty_markdown": true,
+      "no_node_failure": true,
+      "depth_route": true
+    },
+    "duration_ms": 194,
+    "run_id": "93fda3ba-132a-41d8-bf00-32c7fc17f653",
+    "error": null
+  },
+  {
+    "id": "volunteer-match",
+    "depth": "builder",
+    "score": 1.0,
+    "checks": {
+      "interrupt": true,
+      "question_budget": true,
+      "completed": true,
+      "artifact_contract": true,
+      "nonempty_markdown": true,
+      "no_node_failure": true,
+      "depth_route": true
+    },
+    "duration_ms": 200,
+    "run_id": "095e3ced-c7d6-4559-a693-eddb8f49f73c",
+    "error": null
+  },
+  {
+    "id": "home-energy",
+    "depth": "spark",
+    "score": 1.0,
+    "checks": {
+      "interrupt": true,
+      "question_budget": true,
+      "completed": true,
+      "artifact_contract": true,
+      "nonempty_markdown": true,
+      "no_node_failure": true,
+      "depth_route": true
+    },
+    "duration_ms": 168,
+    "run_id": "3111b242-7299-41db-9e73-b0dce321a771",
+    "error": null
+  }
+]
